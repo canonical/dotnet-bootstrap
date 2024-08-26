@@ -362,11 +362,11 @@ class Dotnet8Bootstrapper:
             self._copy_files(pattern, self.PackagesDir)
 
         # Copy files to DOWNLOADDIR
-        for pattern in patterns[2:4]:
+        for pattern in patterns[2:5]:
             self._copy_files(pattern, self.DownloadsDir + f'/aspnetcore/Runtime/{aspnetcore_version}')
 
         # Copy files to OUTPUTDIR
-        for pattern in patterns[4:]:
+        for pattern in patterns[5:]:
             self._copy_files(pattern, self.OutputDir)
 
         print("Files copied successfully.")
