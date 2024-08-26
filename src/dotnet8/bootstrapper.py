@@ -1,11 +1,14 @@
 import glob
 import os
-import re
 import requests
-import shutil
 import subprocess
 import tarfile
 import tempfile
+
+from utils.dotnet import version_build_id
+from utils.files import copy_files, replace_in_file
+from utils.patches import apply_patch, extract_file_path_from_patch
+from utils.xml import get_xml_tag_content
 
 
 class Dotnet8Bootstrapper:
@@ -177,11 +180,11 @@ class Dotnet8Bootstrapper:
     # ----------------------------------------------
     def _build_runtime(self) -> None:
         configuration = "Release"
-        runtime_version = self._get_tag_content(
+        runtime_version = get_xml_tag_content(
             os.path.join(self.WorkingDirectory, "aspnetcore", "eng", "Versions.props"),
             "MicrosoftNETCorePlatformsVersion")
 
-        official_build_id = self._version_build_id(runtime_version)
+        official_build_id = version_build_id(runtime_version)
         build_command = ["./build.sh", "--ci", "-c", configuration, "-arch", self.Arch, "-cross",
                         "-clang", f"/p:OfficialBuildId={official_build_id}"]
 
@@ -234,25 +237,25 @@ class Dotnet8Bootstrapper:
 
         # Copy files to PACKAGESDIR
         for pattern in patterns[:2]:
-            self._copy_files(pattern, self.PackagesDir)
+            copy_files(pattern, self.PackagesDir)
 
         # Copy files to DOWNLOADDIR
         download_pattern = f'{source_dir}/dotnet-runtime-*-linux-{self.Arch}.tar.gz'
-        self._copy_files(download_pattern, self.DownloadsDir + f'/Runtime/{runtime_version}')
+        copy_files(download_pattern, self.DownloadsDir + f'/Runtime/{runtime_version}')
 
         # Copy files to OUTPUTDIR
         for pattern in patterns[2:]:
-            self._copy_files(pattern, self.OutputDir)
+            copy_files(pattern, self.OutputDir)
 
         print("Files copied successfully.")
 
     def _build_sdk(self) -> None:
         configuration = "Release"
-        sdk_version = self._get_tag_content(
+        sdk_version = get_xml_tag_content(
             os.path.join(self.WorkingDirectory, "installer", "eng", "Versions.props"),
             "MicrosoftNETSdkPackageVersion")
         
-        official_build_id = self._version_build_id(sdk_version)
+        official_build_id = version_build_id(sdk_version)
         build_command = ["./build.sh", "--pack", "--ci", "-c", configuration, f"/p:Architecture={self.Arch}",
                          f"/p:OfficialBuildId={official_build_id}"]
 
@@ -283,10 +286,10 @@ class Dotnet8Bootstrapper:
         ]
 
         # Copy files to DOWNLOADDIR
-        self._copy_files(patterns[0], self.DownloadsDir + f'/Sdk/{sdk_version}')
+        copy_files(patterns[0], self.DownloadsDir + f'/Sdk/{sdk_version}')
 
         # Copy files to PACKAGESDIR
-        self._copy_files(patterns[1], self.PackagesDir)
+        copy_files(patterns[1], self.PackagesDir)
 
         print("Files copied successfully.")
 
@@ -299,18 +302,18 @@ class Dotnet8Bootstrapper:
             print(f"Applying {patch}")
             # Replace @@DOWNLOADS_DIR_PATH@@
             patch_path = os.path.abspath(patch)
-            updated_content = self._replace_in_file(
+            updated_content = replace_in_file(
                 patch_path, "@@DOWNLOADS_DIR_PATH@@", os.path.abspath(self.DownloadsDir))
-            file_path = self._extract_file_path_from_patch(updated_content)
-            self._apply_patch(updated_content, os.path.join(self.WorkingDirectory, "aspnetcore", file_path))
+            file_path = extract_file_path_from_patch(updated_content)
+            apply_patch(updated_content, os.path.join(self.WorkingDirectory, "aspnetcore", file_path))
 
     def _build_aspnetcore(self) -> None:
         configuration = "Release"
-        aspnetcore_version = self._get_tag_content(
+        aspnetcore_version = get_xml_tag_content(
             os.path.join(self.WorkingDirectory, "installer", "eng", "Versions.props"),
             "MicrosoftAspNetCoreAppRefInternalPackageVersion")
 
-        official_build_id = self._version_build_id(aspnetcore_version)
+        official_build_id = version_build_id(aspnetcore_version)
         build_command = ["./eng/build.sh", "--pack", "--ci", "-c", configuration, "-arch", self.Arch,
                          f"/p:OfficialBuildId={official_build_id}"]
         
@@ -359,15 +362,15 @@ class Dotnet8Bootstrapper:
 
         # Copy files to PACKAGESDIR
         for pattern in patterns[:2]:
-            self._copy_files(pattern, self.PackagesDir)
+            copy_files(pattern, self.PackagesDir)
 
         # Copy files to DOWNLOADDIR
         for pattern in patterns[2:5]:
-            self._copy_files(pattern, self.DownloadsDir + f'/aspnetcore/Runtime/{aspnetcore_version}')
+            copy_files(pattern, self.DownloadsDir + f'/aspnetcore/Runtime/{aspnetcore_version}')
 
         # Copy files to OUTPUTDIR
         for pattern in patterns[5:]:
-            self._copy_files(pattern, self.OutputDir)
+            copy_files(pattern, self.OutputDir)
 
         print("Files copied successfully.")
 
@@ -380,16 +383,16 @@ class Dotnet8Bootstrapper:
             print(f"Applying {patch}")
             # Replace @@PACKAGES_DIR_PATH@@
             patch_path = os.path.abspath(patch)
-            updated_content = self._replace_in_file(
+            updated_content = replace_in_file(
                 patch_path, "@@PACKAGES_DIR_PATH@@", os.path.abspath(self.PackagesDir))
-            file_path = self._extract_file_path_from_patch(updated_content)
-            self._apply_patch(updated_content, os.path.join(self.WorkingDirectory, "installer", file_path))
+            file_path = extract_file_path_from_patch(updated_content)
+            apply_patch(updated_content, os.path.join(self.WorkingDirectory, "installer", file_path))
 
     def _build_installer(self) -> None:
         configuration = "Release"
         installer_version = str(self.RuntimeVersion)
 
-        official_build_id = self._version_build_id(installer_version)
+        official_build_id = version_build_id(installer_version)
         build_command = ["./build.sh", "--ci", "-c", configuration, "-a", self.Arch,
                          f"/p:OfficialBuildId={official_build_id}", "/p:HostRid=linux-x64",
                          f"/p:PublicBaseURL=file://{self.DownloadsDir}/"]
@@ -406,105 +409,6 @@ class Dotnet8Bootstrapper:
         # Define the source directory and file patterns
         source_dir = f'{self.WorkingDirectory}/installer/artifacts/packages/{configuration}'
 
-        self._copy_files(f"{source_dir}/Shipping/dotnet-sdk-*-linux-{self.Arch}.tar.gz", self.OutputDir)
+        copy_files(f"{source_dir}/Shipping/dotnet-sdk-*-linux-{self.Arch}.tar.gz", self.OutputDir)
 
         print("Files copied successfully.")
-
-    # ----------------------------------------------
-    #               HELPER FUNCTIONS               |
-    # ----------------------------------------------
-    def _replace_in_file(self, input_file: str, pattern: str, replacement: str) -> str:
-        try:
-            with open(input_file, 'r') as file:
-                content = file.read()
-            
-            # Perform the replacement
-            updated_content = re.sub(pattern, replacement, content)
-            
-            print(f"Replaced '{pattern}' with '{replacement}'")
-            return updated_content
-        
-        except FileNotFoundError:
-            print(f"File '{input_file}' not found.")
-        except IOError as e:
-            print(f"An error occurred: {e}")
-
-    def _apply_patch(self, patch_content: str, target_file: str):
-        # Save the patch content to a temporary file
-        patch_file = tempfile.mktemp(".patch")
-        with open(patch_file, 'w') as f:
-            f.write(patch_content)
-        
-        try:
-            # Apply the patch using the `patch` command
-            result = subprocess.run(['patch', '--verbose', target_file, '-i', patch_file],
-                                    check=True, text=True, capture_output=True)
-            print("Patch applied successfully.")
-        except subprocess.CalledProcessError as e:
-            print("Error applying patch")
-            print(e.stdout) if len(str(e.stdout)) > 0 else None
-            print(e.stderr) if len(str(e.stderr)) > 0 else None
-            exit(-1)
-        finally:
-            # Clean up the temporary patch file
-            os.remove(patch_file)
-
-    def _extract_file_path_from_patch(self, patch_content: str) -> str:
-        # Split the patch content into lines
-        lines = patch_content.splitlines()
-        
-        for line in lines:
-            if line.startswith('+++ '):
-                return line[4:].strip().split('\t')[0]
-
-    def _version_build_id(self, version: str) -> str:
-        # Extract suffix from the version
-        suffix = version.split('-')[-1]
-        
-        # Check if the suffix is the same as the version
-        if suffix == version:
-            # Dummy BuildID used when official BuildID is unknown.
-            return "20200101.1"
-        else:
-            # Extract the revision, suffix, and short date from the suffix
-            revision = suffix.split('.')[-1]
-            suffix = '.'.join(suffix.split('.')[:-1])
-            short_date = suffix.split('.')[-1]
-            
-            # Calculate year, month, and day from short_date
-            yy = int(short_date) // 1000
-            mm = (int(short_date) - 1000 * yy) // 50
-            dd = int(short_date) - 1000 * yy - 50 * mm
-            
-            # Format the build ID
-            build_id = f"20{yy:02d}{mm:02d}{dd:02d}.{revision}"
-            return build_id
-
-    def _get_tag_content(self, xml_file_path: str, tag_name: str) -> str | None:
-        try:
-            # Grep for lines containing the tag
-            grep_command = ['grep', f'<{tag_name}>', xml_file_path]
-            result = subprocess.run(grep_command, capture_output=True, text=True, check=True)
-            lines = result.stdout.splitlines()
-            
-            # Extract the value between the tags
-            tag_pattern = re.compile(rf'<{tag_name}>(.*?)</{tag_name}>', re.DOTALL)
-            
-            for line in lines:
-                match = tag_pattern.search(line)
-                if match:
-                    return match.group(1)
-            
-            # Return None if no tag found
-            return None
-
-        except subprocess.CalledProcessError:
-            print("An error occurred while running grep.")
-            return None
-
-    def _copy_files(self, pattern, destination) -> None:
-        print(f"Using pattern '{pattern}'")
-        for file_path in glob.glob(pattern):
-            print(f"Copying {file_path} to {destination}")
-            shutil.copy(file_path, destination)
-
