@@ -1,5 +1,6 @@
 import glob
 import os
+from pathlib import Path
 import requests
 import subprocess
 import tarfile
@@ -298,6 +299,11 @@ class Dotnet8Bootstrapper:
         print("Patching aspnetcore")
         print("-----------------------------------")
 
+        patched_flag_file = Path(os.path.join(self.WorkingDirectory, "aspnetcore", "bootstrap-patched"))
+        if (patched_flag_file.exists()):
+            print("aspnetcore has already been patched. Skipping...")
+            return
+
         for patch in glob.glob("src/dotnet8/patches/aspnetcore-*.patch"):
             print(f"Applying {patch}")
             # Replace @@DOWNLOADS_DIR_PATH@@
@@ -306,6 +312,8 @@ class Dotnet8Bootstrapper:
                 patch_path, "@@DOWNLOADS_DIR_PATH@@", os.path.abspath(self.DownloadsDir))
             file_path = extract_file_path_from_patch(updated_content)
             apply_patch(updated_content, os.path.join(self.WorkingDirectory, "aspnetcore", file_path))
+
+        patched_flag_file.touch()
 
     def _build_aspnetcore(self) -> None:
         configuration = "Release"
@@ -379,6 +387,11 @@ class Dotnet8Bootstrapper:
         print("Patching installer")
         print("-----------------------------------")
 
+        patched_flag_file = Path(os.path.join(self.WorkingDirectory, "installer", "bootstrap-patched"))
+        if (patched_flag_file.exists()):
+            print("installer has already been patched. Skipping...")
+            return
+
         for patch in glob.glob("src/dotnet8/patches/installer-*.patch"):
             print(f"Applying {patch}")
             # Replace @@PACKAGES_DIR_PATH@@
@@ -387,6 +400,8 @@ class Dotnet8Bootstrapper:
                 patch_path, "@@PACKAGES_DIR_PATH@@", os.path.abspath(self.PackagesDir))
             file_path = extract_file_path_from_patch(updated_content)
             apply_patch(updated_content, os.path.join(self.WorkingDirectory, "installer", file_path))
+
+        patched_flag_file.touch()
 
     def _build_installer(self) -> None:
         configuration = "Release"
