@@ -5,10 +5,10 @@ import subprocess
 import tarfile
 import tempfile
 
-from utils.dotnet import version_build_id
-from utils.files import copy_files, replace_in_file
-from utils.patches import apply_patch, extract_file_path_from_patch
-from utils.xml import get_xml_tag_content
+from src.utils.dotnet import version_build_id
+from src.utils.files import copy_files, replace_in_file
+from src.utils.patches import apply_patch, extract_file_path_from_patch
+from src.utils.xml import get_xml_tag_content
 
 
 class Dotnet8Bootstrapper:
