@@ -219,20 +219,20 @@ class Dotnet8Bootstrapper:
         subprocess.run(build_command, env=env, cwd=os.path.join(self.WorkingDirectory, "runtime"), check=True)
         
         # Define the source directory and file patterns
-        source_dir = f'{self.WorkingDirectory}/runtime/artifacts/packages/{configuration}/Shipping'
+        source_dir = f'{self.WorkingDirectory}/runtime/artifacts/packages/{configuration}'
 
         # Define the file patterns to copy
         patterns = [
             # PackagesDir
-            f'{source_dir}/Microsoft.NETCore.App.Host.linux-{self.Arch}.*.nupkg',
-            f'{source_dir}/Microsoft.NETCore.App.Runtime.linux-{self.Arch}.*.nupkg',
+            f'{source_dir}/Shipping/Microsoft.NETCore.App.Host.linux-{self.Arch}.*.nupkg',
+            f'{source_dir}/Shipping/Microsoft.NETCore.App.Runtime.linux-{self.Arch}.*.nupkg',
             # OutputDir
-            f'{source_dir}/dotnet-runtime-*-linux-{self.Arch}.tar.gz',
-            f'{source_dir}/runtime.linux-{self.Arch}.Microsoft.NETCore.DotNetHost.*.nupkg',
-            f'{source_dir}/runtime.linux-{self.Arch}.Microsoft.NETCore.DotNetHostPolicy.*.nupkg',
-            f'{source_dir}/runtime.linux-{self.Arch}.Microsoft.NETCore.DotNetHostResolver.*.nupkg',
-            f'{source_dir}/runtime.linux-{self.Arch}.Microsoft.NETCore.ILAsm.*.nupkg',
-            f'{source_dir}/runtime.linux-{self.Arch}.Microsoft.NETCore.ILDAsm.*.nupkg'
+            f'{source_dir}/Shipping/dotnet-runtime-*-linux-{self.Arch}.tar.gz',
+            f'{source_dir}/Shipping/runtime.linux-{self.Arch}.Microsoft.NETCore.DotNetHost.*.nupkg',
+            f'{source_dir}/Shipping/runtime.linux-{self.Arch}.Microsoft.NETCore.DotNetHostPolicy.*.nupkg',
+            f'{source_dir}/Shipping/runtime.linux-{self.Arch}.Microsoft.NETCore.DotNetHostResolver.*.nupkg',
+            f'{source_dir}/NonShipping/runtime.linux-{self.Arch}.Microsoft.NETCore.ILAsm.*.nupkg',
+            f'{source_dir}/NonShipping/runtime.linux-{self.Arch}.Microsoft.NETCore.ILDAsm.*.nupkg'
         ]
 
         # Copy files to PACKAGESDIR
@@ -240,7 +240,7 @@ class Dotnet8Bootstrapper:
             copy_files(pattern, self.PackagesDir)
 
         # Copy files to DOWNLOADDIR
-        download_pattern = f'{source_dir}/dotnet-runtime-*-linux-{self.Arch}.tar.gz'
+        download_pattern = f'{source_dir}/Shipping/dotnet-runtime-*-linux-{self.Arch}.tar.gz'
         copy_files(download_pattern, self.DownloadsDir + f'/Runtime/{runtime_version}')
 
         # Copy files to OUTPUTDIR
