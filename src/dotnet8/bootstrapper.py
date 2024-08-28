@@ -100,6 +100,8 @@ class Dotnet8Bootstrapper:
                 packages.append("binutils-s390x-linux-gnu")
             elif self.Arch == "ppc64le":
                 packages.append("binutils-powerpc64le-linux-gnu")
+            elif self.Arch == "arm64":
+                packages.append("binutils-aarch64-linux-gnu")
 
         subprocess.run(["apt", "update"])
         subprocess.run(["apt", "upgrade", "-y"])
