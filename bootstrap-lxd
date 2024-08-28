@@ -1,0 +1,101 @@
+#!/bin/bash
+
+container="dotnet-bootstrap-$(mktemp -u XXXXXX)"
+
+# Function to display usage
+usage() {
+    echo "Description:"
+    echo "  This script runs the .NET bootstrap process inside a lxc container."
+    echo "  The bootstrap products will be available inside the dist directory in the repo root."
+    echo ""
+    echo "Usage: $0 --runtime VERSION --sdk VERSION --arch ARCH"
+    echo
+    echo "Options:"
+    echo "  --runtime VERSION   Specify the .NET Runtime version"
+    echo "  --sdk VERSION       Specify the .NET SDK version"
+    echo "  --arch ARCH         Specify the bootstrap architecture"
+    echo "  -h, --help          Display this help message"
+    exit 1
+}
+
+# Custom exit function for cleanup
+cleanup() {
+    container_exists=$(lxc list -c "n" -f compact | grep -c "$container")
+    if [[ $container_exists -eq 1 ]]; then
+        lxc stop "$container"
+        lxc delete "$container"
+    fi
+}
+
+# Parse command-line arguments
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --runtime)
+            if [[ -n "$2" && ! "$2" =~ ^- ]]; then
+                runtime_version="$2"
+                shift 2
+            else
+                echo "Error: --runtime requires a non-empty argument."
+                usage
+            fi
+            ;;
+        --sdk)
+            if [[ -n "$2" && ! "$2" =~ ^- ]]; then
+                sdk_version="$2"
+                shift 2
+            else
+                echo "Error: --sdk requires a non-empty argument."
+                usage
+            fi
+            ;;
+        --arch)
+            if [[ -n "$2" && ! "$2" =~ ^- ]]; then
+                arch="$2"
+                shift 2
+            else
+                echo "Error: --arch requires a non-empty argument."
+                usage
+            fi
+            ;;
+        -h|--help)
+            usage
+            ;;
+        -*)
+            echo "Error: Unknown option: $1"
+            usage
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+# Check if the required option are provided
+if [[ -z "$runtime_version" ]]; then
+    echo "Error: --runtime option is required."
+    usage
+fi
+if [[ -z "$sdk_version" ]]; then
+    echo "Error: --sdk option is required."
+    usage
+fi
+if [[ -z "$arch" ]]; then
+    echo "Error: --arch option is required."
+    usage
+fi
+
+if ! command -v lxd >/dev/null 2>&1; then
+    echo "LXD is not installed."
+    exit 1
+fi
+
+# Set trap to call cleanup function on various signals
+trap 'cleanup; exit 0' EXIT         # Runs cleanup on normal exit
+trap 'cleanup; exit 1' INT          # Runs cleanup on interrupt (Ctrl+C)
+trap 'cleanup; exit 1' TERM         # Runs cleanup on termination signal (kill)
+
+lxc launch ubuntu-daily:j "$container" -c security.privileged=true
+lxc config device add "$container" bootstrap-dir disk source="$(pwd)" path=/bootstrap
+
+lxc exec "$container" -- sh -c "mkdir -p /bootstrap/dist && chmod 777 /bootstrap/dist"
+lxc exec "$container" -- sh -c "/bootstrap/bootstrap.py --runtime $runtime_version --sdk $sdk_version --arch $arch --working-dir /bootstrap/dist"
