@@ -1,13 +1,16 @@
 #!/usr/bin/python3
+import argparse
 
 from src.dotnet8.bootstrapper import Dotnet8Bootstrapper
-import argparse
+from src.dotnet9.bootstrapper import Dotnet9Bootstrapper
 
 def main():
     parser = argparse.ArgumentParser(description="The .NET Bootstrap Tool")
 
     # Expected arguments
-    parser.add_argument('--runtime', type=str, help="Runtime version to bootstrap", required=True)
+    parser.add_argument('--runtime', type=str, help=".NET Runtime version to bootstrap", required=True)
+    parser.add_argument('--aspnetcore-runtime', type=str, help="ASP.NET Core Runtime version to bootstrap", required=False,
+                        default=None)
     parser.add_argument('--sdk', type=str, help="SDK version to bootstrap", required=True)
     parser.add_argument('--arch', type=str, help="The architecture on which to bootstrap .NET",
                         choices=['amd64', 'arm64', 's390x', 'ppc64le'], default='amd64')
@@ -17,16 +20,24 @@ def main():
     # Parse the command line arguments
     args = parser.parse_args()
 
+    if args.aspnetcore_runtime == None:
+        args.aspnetcore_runtime = args.runtime
+
     print("Welcome to the .NET Bootstrap Tool!")
     print("-----------------------------------")
     print("The tool will bootstrap .NET with the following configuration:")
-    print(f"Runtime: {args.runtime}")
+    print(f".NET Runtime: {args.runtime}")
+    print(f"ASP.NET Core Runtime: {args.aspnetcore_runtime}")
     print(f"SDK: {args.sdk}")
     print(f"Architecture: {args.arch}")
     print("-----------------------------------")
 
     if args.runtime[0] == '8':
-        bootstrapper = Dotnet8Bootstrapper(args.runtime, args.sdk, args.arch, args.working_dir)
+        bootstrapper = Dotnet8Bootstrapper(args.runtime, args.aspnetcore_runtime, args.sdk, args.arch, args.working_dir)
+        bootstrapper.prepare()
+        bootstrapper.build()
+    elif args.runtime[0] == '9':
+        bootstrapper = Dotnet9Bootstrapper(args.runtime, args.aspnetcore_runtime, args.sdk, args.arch, args.working_dir)
         bootstrapper.prepare()
         bootstrapper.build()
 
