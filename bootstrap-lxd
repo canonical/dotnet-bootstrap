@@ -8,13 +8,17 @@ usage() {
     echo "  This script runs the .NET bootstrap process inside a lxc container."
     echo "  The bootstrap products will be available inside the dist directory in the repo root."
     echo ""
-    echo "Usage: $0 --runtime VERSION --sdk VERSION --arch ARCH"
+    echo "Usage: $0 --runtime VERSION [--aspnetcore-runtime VERSION] --sdk VERSION --arch ARCH [--apt-proxy URL]"
     echo
-    echo "Options:"
-    echo "  --runtime VERSION   Specify the .NET Runtime version"
-    echo "  --sdk VERSION       Specify the .NET SDK version"
-    echo "  --arch ARCH         Specify the bootstrap architecture"
-    echo "  -h, --help          Display this help message"
+    echo "Main options:"
+    echo "  --runtime VERSION               Specify the .NET Runtime version"
+    echo "  --aspnetcore-runtime VERSION    Specify the ASP.NET Core Runtime version"
+    echo "  --sdk VERSION                   Specify the .NET SDK version"
+    echo "  --arch ARCH                     Specify the bootstrap architecture"
+    echo ""
+    echo "Other options:"
+    echo "  --apt-proxy URL                     Specify an APT proxy URL"
+    echo "  -h, --help                      Display this help message"
     exit 1
 }
 
@@ -39,6 +43,15 @@ while [[ $# -gt 0 ]]; do
                 usage
             fi
             ;;
+        --aspnetcore-runtime)
+            if [[ -n "$2" && ! "$2" =~ ^- ]]; then
+                aspnetcore_runtime_version="$2"
+                shift 2
+            else
+                echo "Error: --aspnetcore-runtime requires a non-empty argument."
+                usage
+            fi
+            ;;
         --sdk)
             if [[ -n "$2" && ! "$2" =~ ^- ]]; then
                 sdk_version="$2"
@@ -54,6 +67,15 @@ while [[ $# -gt 0 ]]; do
                 shift 2
             else
                 echo "Error: --arch requires a non-empty argument."
+                usage
+            fi
+            ;;
+        --apt-proxy)
+            if [[ -n "$2" && ! "$2" =~ ^- ]]; then
+                proxy="$2"
+                shift 2
+            else
+                echo "Error: --apt-proxy requires a non-empty argument."
                 usage
             fi
             ;;
@@ -84,6 +106,10 @@ if [[ -z "$arch" ]]; then
     usage
 fi
 
+if [[ -z "$aspnetcore_runtime_version" ]]; then
+    aspnetcore_runtime_version=$runtime_version
+fi
+
 if ! command -v lxd >/dev/null 2>&1; then
     echo "LXD is not installed."
     exit 1
@@ -97,5 +123,16 @@ trap 'cleanup; exit 1' TERM         # Runs cleanup on termination signal (kill)
 lxc launch ubuntu-daily:j "$container" -c security.privileged=true
 lxc config device add "$container" bootstrap-dir disk source="$(pwd)" path=/bootstrap
 
+# Configure APT proxy if specified
+if [[ -n "$proxy" ]]; then
+    echo "Configuring proxy..."
+    lxc exec "$container" -- sh -c "echo \"Acquire::http::Proxy \\\"${proxy}\\\";\" > /etc/apt/apt.conf.d/00proxy"
+    lxc exec "$container" -- sh -c "cat /etc/apt/apt.conf.d/00proxy"
+    echo "Proxy configured!"
+fi
+
+
 lxc exec "$container" -- sh -c "mkdir -p /bootstrap/dist && chmod 777 /bootstrap/dist"
-lxc exec "$container" -- sh -c "/bootstrap/bootstrap.py --runtime $runtime_version --sdk $sdk_version --arch $arch --working-dir /bootstrap/dist"
+lxc exec "$container" -- sh -c "cd /bootstrap && python3 -u bootstrap.py --runtime $runtime_version \
+    --aspnetcore-runtime $aspnetcore_runtime_version --sdk $sdk_version --arch $arch \
+    --working-dir /bootstrap/dist | tee /bootstrap/dist/$(date +\"%Y-%m-%d_%H-%M-%S\").log"
