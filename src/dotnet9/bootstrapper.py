@@ -6,7 +6,6 @@ import subprocess
 import tarfile
 import tempfile
 
-from src.utils.dotnet import version_build_id
 from src.utils.files import copy_files, replace_in_file
 from src.utils.patches import apply_patch, extract_file_path_from_patch
 from src.utils.xml import get_xml_tag_content
@@ -15,14 +14,10 @@ from src.utils.xml import get_xml_tag_content
 class Dotnet9Bootstrapper:
 
     def __init__(self,
-                 runtime_version: str,
-                 aspnetcore_runtime_version: str,
-                 sdk_version: str,
+                 version: str,
                  arch: str,
                  working_directory: str | None):
-        self.RuntimeVersion = runtime_version
-        self.AspNetCoreRuntimeVersion = aspnetcore_runtime_version
-        self.SdkVersion = sdk_version
+        self.Version = version
         self.Arch = arch
         if working_directory is None:
             self.WorkingDirectory = tempfile.mkdtemp()
@@ -61,6 +56,8 @@ class Dotnet9Bootstrapper:
         # sdk
         self._patch_sdk()
         self._build_sdk()
+
+        print("Bootstrap build finished.")
 
     # ----------------------------------------------
     #              PREPARATION STAGE               |
@@ -148,16 +145,8 @@ class Dotnet9Bootstrapper:
     def _clone_repositories(self) -> None:
         repos = [
             {
-                "url": "https://github.com/dotnet/runtime",
-                "tag": "v" + str(self.RuntimeVersion)
-            },
-            {
-                "url": "https://github.com/dotnet/sdk",
-                "tag": "v" + str(self.SdkVersion)
-            },
-            {
-                "url": "https://github.com/dotnet/aspnetcore",
-                "tag": "v" + str(self.AspNetCoreRuntimeVersion)
+                "url": "https://github.com/dotnet/dotnet",
+                "tag": "v" + str(self.Version)
             }
         ]
 
@@ -178,11 +167,11 @@ class Dotnet9Bootstrapper:
     # ----------------------------------------------
     def _build_runtime(self) -> None:
         configuration = "Release"
-        runtime_version = get_xml_tag_content(
-            os.path.join(self.WorkingDirectory, "aspnetcore", "eng", "Versions.props"),
-            "MicrosoftNETCorePlatformsVersion")
+        repo_root = os.path.join(self.WorkingDirectory, "dotnet", "src", "runtime")
+        props_file = os.path.join(self.WorkingDirectory, "dotnet", "prereqs", "git-info", "runtime.props")
+        runtime_version = get_xml_tag_content(props_file, "OutputPackageVersion")
+        official_build_id = get_xml_tag_content(props_file, "OfficialBuildId")
 
-        official_build_id = version_build_id(runtime_version)
         build_command = ["./build.sh", "--ci", "-c", configuration, "-arch", self.Arch, "-cross",
                         "-clang", f"/p:OfficialBuildId={official_build_id}"]
 
@@ -190,11 +179,12 @@ class Dotnet9Bootstrapper:
         print("Building runtime")
         print(f"Configuration = {configuration}")
         print(f"Version = {runtime_version}")
+        print(f"Official Build ID = {official_build_id}")
         print(f"Build command = {' '.join(build_command)}")
         print("-----------------------------------")
 
         if runtime_version is None:
-            raise ValueError("Could not retrieve runtime version from Versions.props file")
+            raise ValueError("Could not retrieve runtime version from props file")
 
         runtime_downloads_dir = os.path.join(self.DownloadsDir, "Runtime", runtime_version)
         os.makedirs(runtime_downloads_dir, exist_ok=True)
@@ -202,11 +192,11 @@ class Dotnet9Bootstrapper:
         rootfs = "/"
         if self.Arch != "amd64":
             print(f"Arch is {self.Arch}, needs to build crossrootfs")
-            rootfs = os.path.abspath(os.path.join(self.WorkingDirectory, "runtime", ".tools/rootfs/" + self.Arch))
+            rootfs = os.path.abspath(os.path.join(repo_root, ".tools/rootfs/", self.Arch))
             print(f"Using rootfs = {rootfs}")
             if not os.path.exists(rootfs):
                 subprocess.run(["./eng/common/cross/build-rootfs.sh", self.Arch, "bionic"],
-                               cwd=os.path.join(self.WorkingDirectory, "runtime"), check=True)
+                               cwd=repo_root, check=True)
             else:
                 print(f"Crossrootfs directory found at {rootfs}")
 
@@ -214,10 +204,10 @@ class Dotnet9Bootstrapper:
         env = os.environ.copy()
         env['ROOTFS_DIR'] = rootfs
 
-        subprocess.run(build_command, env=env, cwd=os.path.join(self.WorkingDirectory, "runtime"), check=True)
+        subprocess.run(build_command, env=env, cwd=repo_root, check=True)
         
         # Define the source directory and file patterns
-        source_dir = f'{self.WorkingDirectory}/runtime/artifacts/packages/{configuration}/Shipping'
+        source_dir = f'{repo_root}/artifacts/packages/{configuration}/Shipping'
 
         # Define the file patterns to copy
         patterns = [
@@ -252,7 +242,8 @@ class Dotnet9Bootstrapper:
         print("Patching aspnetcore")
         print("-----------------------------------")
 
-        patched_flag_file = Path(os.path.join(self.WorkingDirectory, "aspnetcore", "bootstrap-patched"))
+        repo_root = os.path.join(self.WorkingDirectory, "dotnet", "src", "aspnetcore")
+        patched_flag_file = Path(os.path.join(repo_root, "bootstrap-patched"))
         if (patched_flag_file.exists()):
             print("aspnetcore has already been patched. Skipping...")
             return
@@ -264,17 +255,17 @@ class Dotnet9Bootstrapper:
             updated_content = replace_in_file(
                 patch_path, "@@DOWNLOADS_DIR_PATH@@", os.path.abspath(self.DownloadsDir))
             file_path = extract_file_path_from_patch(updated_content)
-            apply_patch(updated_content, os.path.join(self.WorkingDirectory, "aspnetcore", file_path))
+            apply_patch(updated_content, os.path.join(repo_root, file_path))
 
         patched_flag_file.touch()
 
     def _build_aspnetcore(self) -> None:
         configuration = "Release"
-        aspnetcore_version = get_xml_tag_content(
-            os.path.join(self.WorkingDirectory, "sdk", "eng", "Versions.props"),
-            "MicrosoftAspNetCoreAppRefInternalPackageVersion")
+        repo_root = os.path.join(self.WorkingDirectory, "dotnet", "src", "aspnetcore")
+        props_file = os.path.join(self.WorkingDirectory, "dotnet", "prereqs", "git-info", "aspnetcore.props")
+        aspnetcore_version = get_xml_tag_content(props_file, "OutputPackageVersion")
+        official_build_id = get_xml_tag_content(props_file, "OfficialBuildId")
 
-        official_build_id = version_build_id(aspnetcore_version)
         build_command = ["./eng/build.sh", "--pack", "--ci", "-c", configuration, "-arch", self.Arch,
                          f"/p:OfficialBuildId={official_build_id}"]
         
@@ -293,20 +284,21 @@ class Dotnet9Bootstrapper:
         print("Building aspnetcore")
         print(f"Configuration = {configuration}")
         print(f"Version = {aspnetcore_version}")
-        print(f"Build command = {' '.join(build_command)}")
+        print(f"Official Build ID = {official_build_id}")
         print(f"Node version = {node_result.stdout.strip()}")
+        print(f"Build command = {' '.join(build_command)}")
         print("-----------------------------------")
 
         if aspnetcore_version is None:
-            raise ValueError("Could not retrieve ASP.NET Core runtime version from Versions.props file")
+            raise ValueError("Could not retrieve ASP.NET Core runtime version from props file")
 
         aspnetcore_downloads_dir = os.path.join(self.DownloadsDir, "aspnetcore", "Runtime", aspnetcore_version)
         os.makedirs(aspnetcore_downloads_dir, exist_ok=True)
 
-        subprocess.run(build_command, cwd=os.path.join(self.WorkingDirectory, "aspnetcore"), env=env, check=True)
+        subprocess.run(build_command, cwd=repo_root, env=env, check=True)
         
         # Define the source directory and file patterns
-        source_dir = f'{self.WorkingDirectory}/aspnetcore/artifacts'
+        source_dir = f'{repo_root}/artifacts'
 
         # Define the file patterns to copy
         patterns = [
@@ -339,7 +331,8 @@ class Dotnet9Bootstrapper:
         print("Patching sdk")
         print("-----------------------------------")
 
-        patched_flag_file = Path(os.path.join(self.WorkingDirectory, "sdk", "bootstrap-patched"))
+        repo_root = os.path.join(self.WorkingDirectory, "dotnet", "src", "sdk")
+        patched_flag_file = Path(os.path.join(repo_root, "bootstrap-patched"))
         if (patched_flag_file.exists()):
             print("sdk has already been patched. Skipping...")
             return
@@ -351,26 +344,32 @@ class Dotnet9Bootstrapper:
             updated_content = replace_in_file(
                 patch_path, "@@PACKAGES_DIR_PATH@@", os.path.abspath(self.PackagesDir))
             file_path = extract_file_path_from_patch(updated_content)
-            apply_patch(updated_content, os.path.join(self.WorkingDirectory, "sdk", file_path))
+            apply_patch(updated_content, os.path.join(repo_root, file_path))
 
         patched_flag_file.touch()
 
     def _build_sdk(self) -> None:
         configuration = "Release"
+        repo_root = os.path.join(self.WorkingDirectory, "dotnet", "src", "sdk")
+        props_file = os.path.join(self.WorkingDirectory, "dotnet", "prereqs", "git-info", "sdk.props")
+        sdk_version = get_xml_tag_content(props_file, "OutputPackageVersion")
+        official_build_id = get_xml_tag_content(props_file, "OfficialBuildId")
         build_command = ["./build.sh", "--pack", "--ci", "-c", configuration, f"/p:Architecture={self.Arch}",
-                         f"/p:HostRid=linux-x64", f"/p:PublicBaseURL=file://{self.DownloadsDir}/"]
+                         f"/p:HostRid=linux-x64", f"/p:PublicBaseURL=file://{self.DownloadsDir}/",
+                         f"/p:OfficialBuildId={official_build_id}"]
 
         print("-----------------------------------")
         print("Building SDK")
         print(f"Configuration = {configuration}")
-        print(f"Version = {self.SdkVersion}")
+        print(f"Version = {sdk_version}")
+        print(f"Official Build ID = {official_build_id}")
         print(f"Build command = {' '.join(build_command)}")
         print("-----------------------------------")
 
-        subprocess.run(build_command, cwd=os.path.join(self.WorkingDirectory, "sdk"), check=True)
+        subprocess.run(build_command, cwd=repo_root, check=True)
 
         # Define the source directory and file patterns
-        source_dir = f'{self.WorkingDirectory}/sdk/artifacts/packages/{configuration}'
+        source_dir = f'{repo_root}/artifacts/packages/{configuration}'
 
         copy_files(f"{source_dir}/Shipping/dotnet-sdk-*-linux-{self.Arch}.tar.gz", self.OutputDir)
 

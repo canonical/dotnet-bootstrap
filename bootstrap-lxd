@@ -5,20 +5,18 @@ container="dotnet-bootstrap-$(mktemp -u XXXXXX)"
 # Function to display usage
 usage() {
     echo "Description:"
-    echo "  This script runs the .NET bootstrap process inside a lxc container."
+    echo "  This script runs the .NET bootstrap process inside a lxd container."
     echo "  The bootstrap products will be available inside the dist directory in the repo root."
     echo ""
-    echo "Usage: $0 --runtime VERSION [--aspnetcore-runtime VERSION] --sdk VERSION --arch ARCH [--apt-proxy URL]"
+    echo "Usage: $0 --version VERSION --arch ARCH [--apt-proxy URL]"
     echo
     echo "Main options:"
-    echo "  --runtime VERSION               Specify the .NET Runtime version"
-    echo "  --aspnetcore-runtime VERSION    Specify the ASP.NET Core Runtime version"
-    echo "  --sdk VERSION                   Specify the .NET SDK version"
-    echo "  --arch ARCH                     Specify the bootstrap architecture"
+    echo "  --version VERSION               Specify the .NET version to bootstrap per the VMR repo git tag."
+    echo "  --arch ARCH                     Specify the bootstrap architecture."
     echo ""
     echo "Other options:"
-    echo "  --apt-proxy URL                     Specify an APT proxy URL"
-    echo "  -h, --help                      Display this help message"
+    echo "  --apt-proxy URL                 Specify an APT proxy URL."
+    echo "  -h, --help                      Display this help message."
     exit 1
 }
 
@@ -34,30 +32,12 @@ cleanup() {
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --runtime)
+        --version)
             if [[ -n "$2" && ! "$2" =~ ^- ]]; then
-                runtime_version="$2"
+                version="$2"
                 shift 2
             else
-                echo "Error: --runtime requires a non-empty argument."
-                usage
-            fi
-            ;;
-        --aspnetcore-runtime)
-            if [[ -n "$2" && ! "$2" =~ ^- ]]; then
-                aspnetcore_runtime_version="$2"
-                shift 2
-            else
-                echo "Error: --aspnetcore-runtime requires a non-empty argument."
-                usage
-            fi
-            ;;
-        --sdk)
-            if [[ -n "$2" && ! "$2" =~ ^- ]]; then
-                sdk_version="$2"
-                shift 2
-            else
-                echo "Error: --sdk requires a non-empty argument."
+                echo "Error: --version requires a non-empty argument."
                 usage
             fi
             ;;
@@ -93,21 +73,13 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Check if the required option are provided
-if [[ -z "$runtime_version" ]]; then
-    echo "Error: --runtime option is required."
-    usage
-fi
-if [[ -z "$sdk_version" ]]; then
-    echo "Error: --sdk option is required."
+if [[ -z "$version" ]]; then
+    echo "Error: --version option is required."
     usage
 fi
 if [[ -z "$arch" ]]; then
     echo "Error: --arch option is required."
     usage
-fi
-
-if [[ -z "$aspnetcore_runtime_version" ]]; then
-    aspnetcore_runtime_version=$runtime_version
 fi
 
 if ! command -v lxd >/dev/null 2>&1; then
@@ -133,6 +105,6 @@ fi
 
 
 lxc exec "$container" -- sh -c "mkdir -p /bootstrap/dist && chmod 777 /bootstrap/dist"
-lxc exec "$container" -- sh -c "cd /bootstrap && python3 -u bootstrap.py --runtime $runtime_version \
-    --aspnetcore-runtime $aspnetcore_runtime_version --sdk $sdk_version --arch $arch \
+lxc exec "$container" -- sh -c "DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
+    python3 -u /bootstrap/bootstrap.py --version $version --arch $arch \
     --working-dir /bootstrap/dist | tee /bootstrap/dist/$(date +\"%Y-%m-%d_%H-%M-%S\").log"
