@@ -99,9 +99,13 @@ class Dotnet9Bootstrapper:
             elif self.Arch == "arm64":
                 packages.append("binutils-aarch64-linux-gnu")
 
-        subprocess.run(["apt-get", "update"])
-        subprocess.run(["apt-get", "upgrade", "-y"])
-        subprocess.run(["apt-get", "install", "-y"] + packages)
+        env = os.environ.copy()
+        env['DEBIAN_FRONTEND'] = 'noninteractive'
+        env['NEEDRESTART_MODE'] = 'a'
+
+        subprocess.run(["apt-get", "update"], env=env, check=True)
+        subprocess.run(["apt-get", "upgrade", "-y"], env=env, check=True)
+        subprocess.run(["apt-get", "install", "-y"] + packages, env=env, check=True)
 
     def _install_nodejs(self) -> None:
         print("-----------------------------------")

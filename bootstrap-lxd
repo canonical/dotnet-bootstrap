@@ -105,6 +105,5 @@ fi
 
 
 lxc exec "$container" -- sh -c "mkdir -p /bootstrap/dist && chmod 777 /bootstrap/dist"
-lxc exec "$container" -- sh -c "DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a \
-    python3 -u /bootstrap/bootstrap.py --version $version --arch $arch \
+lxc exec "$container" -- sh -c "cd /bootstrap && python3 -u bootstrap.py --version $version --arch $arch \
     --working-dir /bootstrap/dist | tee /bootstrap/dist/$(date +\"%Y-%m-%d_%H-%M-%S\").log"
