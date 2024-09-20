@@ -7,6 +7,7 @@ The .NET Bootstrap Script allows for the easy bootstrapping of .NET builds targe
 The script currently supports:
 
 - .NET 8
+- .NET 9
 
 ## How to Use
 
@@ -18,15 +19,15 @@ The script currently supports:
 Run the script as follows:
 
 ```
-$ sudo ./bootstrap.py --runtime <runtime_version> --sdk <sdk_version> --arch <arch> --working-dir <dir>
+$ sudo ./bootstrap.py --version <version> --arch <arch> --working-dir <dir>
 ```
 
 Keep in mind that:
 
 - You are meant to run this script on an `amd64` machine, even if you are targeting other architectures.
-- Your runtime and SDK versions need to align releases, such as `8.0.8` and `8.0.108`.
+- Your `<version>` should equal one available as a [VMR](https://github.com/dotnet/dotnet) git tag without the "v" preffix, e.g. 8.0.8.
 - Possible values for `--arch` are `amd64`, `arm64`, `s390x`, and `ppc64le`. This script has been thoroughly tested for `s390x` and `ppc64le` only.
-- If you don't choose a working directory, the script will automatically create a temporary directory and place the outputs there.
+- If you don't choose a working directory, the script will automatically create a temporary directory and place the build outputs there.
 
 ### Script outputs
 
@@ -46,7 +47,7 @@ To build version `N` of the VMR, you need to have bootstrapped version `N-1` of 
 #### 1. Bootstrap .NET 8.0.7
 
 ```
-$ sudo ./bootstrap.py --runtime 8.0.7 --sdk 8.0.107 --arch s390x --working-dir $HOME
+$ sudo ./bootstrap.py --version 8.0.7 --arch s390x --working-dir $HOME
 ```
 
 #### 2. Extract the SDK from the output directory
@@ -64,7 +65,8 @@ $ cd dotnet-vmr
 $ git checkout v8.0.8
 ```
 
-We are building version 8.0.8 of .NET, so you need to have bootstrapped version 8.0.7 using the script provided in this repo.
+> [!NOTE]
+> We are building version 8.0.8 of .NET, so you need to have bootstrapped version 8.0.7 using the script provided in this repo.
 
 #### 4. Run the VMR prep script
 
