@@ -1,6 +1,12 @@
 #!/bin/bash
 
-container="dotnet-bootstrap-$(mktemp -u XXXXXX)"
+# Check if there is already a container running that starts with the name dotnet-bootstrap-
+container_exists=$(lxc list -c "n" -f compact | grep -o "dotnet-bootstrap-[^ ]*")
+if [[ -n "$container_exists" ]]; then
+    container=$(echo "$container_exists" | head -n 1)
+else
+    container="dotnet-bootstrap-$(mktemp -u XXXXXX)"
+fi
 
 # Function to display usage
 usage() {
@@ -92,18 +98,34 @@ trap 'cleanup; exit 0' EXIT         # Runs cleanup on normal exit
 trap 'cleanup; exit 1' INT          # Runs cleanup on interrupt (Ctrl+C)
 trap 'cleanup; exit 1' TERM         # Runs cleanup on termination signal (kill)
 
-lxc launch ubuntu-daily:j "$container" -c security.privileged=true
-lxc config device add "$container" bootstrap-dir disk source="$(pwd)" path=/bootstrap
+if [[ -z "$container_exists" ]]; then
+    lxc launch ubuntu-daily:j "$container" -c security.privileged=true
+    lxc config device add "$container" bootstrap-dir disk source="$(pwd)" path=/bootstrap
 
-# Configure APT proxy if specified
-if [[ -n "$proxy" ]]; then
-    echo "Configuring proxy..."
-    lxc exec "$container" -- sh -c "echo \"Acquire::http::Proxy \\\"${proxy}\\\";\" > /etc/apt/apt.conf.d/00proxy"
-    lxc exec "$container" -- sh -c "cat /etc/apt/apt.conf.d/00proxy"
-    echo "Proxy configured!"
+    # Configure APT proxy if specified
+    if [[ -n "$proxy" ]]; then
+        echo "Configuring proxy..."
+        lxc exec "$container" -- sh -c "echo \"Acquire::http::Proxy \\\"${proxy}\\\";\" > /etc/apt/apt.conf.d/00proxy"
+        lxc exec "$container" -- sh -c "cat /etc/apt/apt.conf.d/00proxy"
+        echo "Proxy configured!"
+    fi
+
+    lxc exec "$container" -- sh -c "mkdir -p /bootstrap/dist && chmod 777 /bootstrap/dist"
+else
+    echo "Using existing container: $container"
 fi
 
+lxc exec "$container" -- bash -c "cd /bootstrap && python3 -u bootstrap.py --version $version --arch $arch \
+    --working-dir /bootstrap/dist | tee /bootstrap/dist/$(date +\"%Y-%m-%d_%H-%M-%S\").log; exit \${PIPESTATUS[0]}"
+exit_code=$?
 
-lxc exec "$container" -- sh -c "mkdir -p /bootstrap/dist && chmod 777 /bootstrap/dist"
-lxc exec "$container" -- sh -c "cd /bootstrap && python3 -u bootstrap.py --version $version --arch $arch \
-    --working-dir /bootstrap/dist | tee /bootstrap/dist/$(date +\"%Y-%m-%d_%H-%M-%S\").log"
+echo "Bootstrap process exited with code $exit_code."
+
+# Capture the exit code of the last lxc exec command
+if [[ $exit_code -ne 0 ]]; then
+    echo "Error: The bootstrap process failed with exit code $exit_code." >&2
+    echo "Please check the logs for more details." >&2
+    echo "Keeping the container ${container} for debugging purposes." >&2
+    trap - EXIT  # Disable the EXIT trap
+    exit $exit_code
+fi
