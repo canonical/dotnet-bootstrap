@@ -101,6 +101,8 @@ class Dotnet8Bootstrapper:
                 packages.append("binutils-powerpc64le-linux-gnu")
             elif self.Arch == "arm64":
                 packages.append("binutils-aarch64-linux-gnu")
+            elif self.Arch == "riscv64":
+                packages.append("binutils-riscv64-linux-gnu")
 
         env = os.environ.copy()
         env['DEBIAN_FRONTEND'] = 'noninteractive'

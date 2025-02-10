@@ -10,7 +10,7 @@ def main():
     # Expected arguments
     parser.add_argument('--version', type=str, help=".NET version to bootstrap per the VMR repo git tag", required=True)
     parser.add_argument('--arch', type=str, help="The architecture on which to bootstrap .NET",
-                        choices=['amd64', 'arm64', 's390x', 'ppc64le'], default='amd64')
+                        choices=['amd64', 'arm64', 's390x', 'ppc64le', 'riscv64'], default='amd64')
 
     parser.add_argument('--working-dir', type=str, help="Working directory", default=None)
 
