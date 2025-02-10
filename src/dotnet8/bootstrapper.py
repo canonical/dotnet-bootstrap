@@ -47,6 +47,7 @@ class Dotnet8Bootstrapper:
 
     def build(self):
         # runtime
+        self._patch_runtime()
         self._build_runtime()
 
         # sdk
@@ -174,6 +175,28 @@ class Dotnet8Bootstrapper:
     # ----------------------------------------------
     #                 BUILD STAGE                  |
     # ----------------------------------------------
+    def _patch_runtime(self) -> None:
+        print("-----------------------------------")
+        print("Patching runtime")
+        print("-----------------------------------")
+
+        repo_root = os.path.join(self.WorkingDirectory, "dotnet", "src", "runtime")
+        patched_flag_file = Path(os.path.join(repo_root, "bootstrap-patched"))
+        if (patched_flag_file.exists()):
+            print("runtime has already been patched. Skipping...")
+            return
+
+        for patch in glob.glob("src/dotnet8/patches/runtime-*.patch"):
+            print(f"Applying {patch}")
+            patch_path = os.path.abspath(patch)
+            subprocess.run(
+                ["patch", "-p1", "-i", patch_path],
+                cwd=repo_root,
+                check=True
+            )
+
+        patched_flag_file.touch()
+
     def _build_runtime(self) -> None:
         configuration = "Release"
         repo_root = os.path.join(self.WorkingDirectory, "dotnet", "src", "runtime")
