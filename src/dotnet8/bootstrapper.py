@@ -203,8 +203,11 @@ class Dotnet8Bootstrapper:
             print(f"Arch is {self.Arch}, needs to build crossrootfs")
             rootfs = os.path.abspath(os.path.join(repo_root, ".tools/rootfs/" + self.Arch))
             print(f"Using rootfs = {rootfs}")
+            distro_release = "bionic"
+            if self.Arch == "riscv64":
+                distro_release = "noble"
             if not os.path.exists(rootfs):
-                subprocess.run(["./eng/common/cross/build-rootfs.sh", self.Arch, "bionic"],
+                subprocess.run(["./eng/common/cross/build-rootfs.sh", self.Arch, distro_release],
                                cwd=repo_root, check=True)
             else:
                 print(f"Crossrootfs directory found at {rootfs}")
