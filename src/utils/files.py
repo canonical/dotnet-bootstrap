@@ -39,6 +39,11 @@ def replace_many_in_file(input_file: str, replacements: dict[str, str]) -> str:
 
 def copy_files(pattern, destination) -> None:
     print(f"Using pattern '{pattern}'")
+    files_to_copy = glob.glob(pattern)
+
+    if not files_to_copy:
+        raise FileNotFoundError(f"No files found matching pattern: {pattern}")
+
     for file_path in glob.glob(pattern):
         print(f"Copying {file_path} to {destination}")
         shutil.copy(file_path, destination)
