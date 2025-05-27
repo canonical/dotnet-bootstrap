@@ -20,7 +20,7 @@ on:
 
 jobs:
   bootstrap:
-    runs-on: [self-hosted, large, jammy, X64]
+    runs-on: [self-hosted, xlarge, jammy, X64]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -33,6 +33,11 @@ jobs:
             --version "${{ github.event.inputs.version }}" \
             --arch "${{ github.event.inputs.arch }}" \
             --working-dir "${{ github.workspace }}/dist"
+
+      - name: Setup tmate session
+        if: ${{ failure() }}
+        uses: canonical/action-tmate@main
+        timeout-minutes: 15
 
       - name: Upload bootstrap artifacts
         uses: actions/upload-artifact@v4
