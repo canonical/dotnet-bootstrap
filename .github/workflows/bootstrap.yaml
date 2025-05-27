@@ -1,0 +1,41 @@
+name: Bootstrap .NET SDK
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version of the .NET SDK to bootstrap per the VMR tag'
+        required: true
+        type: string
+      arch:
+        description: 'Target architecture for the bootstrapped .NET SDK'
+        required: true
+        type: choice
+        options:
+          - amd64
+          - arm64
+          - s390x
+          - ppc64le
+        default: amd64
+
+jobs:
+  bootstrap:
+    runs-on: [self-hosted, large, jammy, X64]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Bootstrap .NET SDK
+        shell: bash
+        run: |
+          mkdir -p "${{ github.workspace }}/dist"
+          sudo ./bootstrap.py \
+            --version "${{ github.event.inputs.version }}" \
+            --arch "${{ github.event.inputs.arch }}" \
+            --working-dir "${{ github.workspace }}/dist"
+
+      - name: Upload bootstrap artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-${{ github.event.inputs.version }}-${{ github.event.inputs.arch }}
+          path: "${{ github.workspace }}/dist/output/*"
