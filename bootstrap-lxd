@@ -8,17 +8,22 @@ else
     container="dotnet-bootstrap-$(mktemp -u XXXXXX)"
 fi
 
+should_keep_container=false
+
 # Function to display usage
 usage() {
     echo "Description:"
-    echo "  This script runs the .NET bootstrap process inside a lxd container."
+    echo "  This script runs the .NET bootstrap process inside a LXD container."
     echo "  The bootstrap products will be available inside the dist directory in the repo root."
     echo ""
-    echo "Usage: $0 --version VERSION --arch ARCH [--apt-proxy URL]"
+    echo "Usage: $0 --version VERSION --arch ARCH [--apt-proxy URL] [--keep-container] [-h|--help]"
     echo
     echo "Main options:"
     echo "  --version VERSION               Specify the .NET version to bootstrap per the VMR repo git tag."
     echo "  --arch ARCH                     Specify the bootstrap architecture."
+    echo "  --keep-container                Keep the container after a successful run."
+    echo "                                   If not specified, the container will be deleted after a successful run."
+    echo "                                   If the bootstrap process fails, the container is kept for debugging by default."
     echo ""
     echo "Other options:"
     echo "  --apt-proxy URL                 Specify an APT proxy URL."
@@ -64,6 +69,10 @@ while [[ $# -gt 0 ]]; do
                 echo "Error: --apt-proxy requires a non-empty argument."
                 usage
             fi
+            ;;
+        --keep-container)
+            should_keep_container=true
+            shift
             ;;
         -h|--help)
             usage
@@ -128,4 +137,11 @@ if [[ $exit_code -ne 0 ]]; then
     echo "Keeping the container ${container} for debugging purposes." >&2
     trap - EXIT  # Disable the EXIT trap
     exit $exit_code
+elif [[ $should_keep_container == true ]]; then
+    echo "Keeping the container $container as requested."
+    trap - EXIT  # Disable the EXIT trap
+    exit 0
+else
+    echo "Cleaning up the container $container."
+    cleanup
 fi
