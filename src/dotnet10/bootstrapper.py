@@ -279,7 +279,7 @@ class Dotnet10Bootstrapper:
         
         # Create a copy of the current environment and add/modify the variable
         env = os.environ.copy()
-        env['PATH'] = env['PATH'] + f":{self.WorkingDirectory}/node/bin"
+        env['PATH'] = f":{self.WorkingDirectory}/node/bin" + env['PATH']
 
         node_result = subprocess.run(["node", "--version"], env=env, capture_output=True, text=True, check=True)
         if node_result.returncode != 0:
