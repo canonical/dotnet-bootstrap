@@ -1,0 +1,9 @@
+--- NuGet.config	2024-08-26 15:14:04.000000000 -0300
++++ NuGet.config	2024-08-26 15:15:02.000000000 -0300
+@@ -2,6 +2,7 @@
+ <configuration>
+   <packageSources>
+     <clear />
++    <add key="local" value="@@PACKAGES_DIR_PATH@@" />
+     <add key="dotnet-eng" value="https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-eng/nuget/v3/index.json" />
+     <add key="dotnet-tools" value="https://pkgs.dev.azure.com/dnceng/public/_packaging/dotnet-tools/nuget/v3/index.json" />

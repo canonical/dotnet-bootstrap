@@ -8,6 +8,7 @@ The script currently supports:
 
 - .NET 8
 - .NET 9
+- .NET 10
 
 ## How to Use
 

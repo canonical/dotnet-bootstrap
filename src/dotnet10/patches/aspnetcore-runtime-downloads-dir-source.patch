@@ -1,0 +1,12 @@
+--- src/Framework/App.Runtime/src/aspnetcore-runtime.proj	2025-05-26 14:14:18.574874574 -0300
++++ src/Framework/App.Runtime/src/aspnetcore-runtime.proj	2025-05-26 14:14:45.143798039 -0300
+***************
+*** 37,42 ****
+--- 37,43 ----
+  
+    <Target Name="_DownloadAndExtractDotNetRuntime" Returns="$(DotNetRuntimeArchive)">
+      <ItemGroup>
++       <UrisToDownload Include="file://@@DOWNLOADS_DIR_PATH@@/$(DotNetRuntimeDownloadPath)" />
+        <UrisToDownload Include="@(RemoteAssetBaseURL->'%(Identity)$(DotNetRuntimeDownloadPath)')" />
+      </ItemGroup>
+  

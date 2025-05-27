@@ -1,8 +1,9 @@
 #!/usr/bin/python3
 import argparse
 
-from src.dotnet8.bootstrapper import Dotnet8Bootstrapper
-from src.dotnet9.bootstrapper import Dotnet9Bootstrapper
+from src.dotnet8.bootstrapper  import Dotnet8Bootstrapper
+from src.dotnet9.bootstrapper  import Dotnet9Bootstrapper
+from src.dotnet10.bootstrapper import Dotnet10Bootstrapper
 
 def main():
     parser = argparse.ArgumentParser(description="The .NET Bootstrap Tool")
@@ -24,12 +25,16 @@ def main():
     print(f"Architecture: {args.arch}")
     print("-----------------------------------")
 
-    if args.version[0] == '8':
+    if args.version.split('.')[0] == '8':
         bootstrapper = Dotnet8Bootstrapper(args.version, args.arch, args.working_dir)
         bootstrapper.prepare()
         bootstrapper.build()
-    elif args.version[0] == '9':
+    elif args.version.split('.')[0] == '9':
         bootstrapper = Dotnet9Bootstrapper(args.version, args.arch, args.working_dir)
+        bootstrapper.prepare()
+        bootstrapper.build()
+    elif args.version.split('.')[0] == '10':
+        bootstrapper = Dotnet10Bootstrapper(args.version, args.arch, args.working_dir)
         bootstrapper.prepare()
         bootstrapper.build()
 

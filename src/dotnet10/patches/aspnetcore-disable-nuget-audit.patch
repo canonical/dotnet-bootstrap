@@ -1,0 +1,12 @@
+--- Directory.Build.props	2025-05-27 13:30:58.867878559 -0300
++++ Directory.Build.props	2025-05-27 13:32:53.592313426 -0300
+***************
+*** 1,6 ****
+--- 1,7 ----
+  <Project>
+  
+    <PropertyGroup>
++     <NuGetAudit>false</NuGetAudit>
+      <AccelerateBuildsInVisualStudio>true</AccelerateBuildsInVisualStudio>
+    </PropertyGroup>
+  
