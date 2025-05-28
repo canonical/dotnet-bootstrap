@@ -1,8 +1,8 @@
 --- src/Framework/App.Runtime/src/aspnetcore-runtime-composite.proj	2025-05-26 14:14:18.574874574 -0300
 +++ src/Framework/App.Runtime/src/aspnetcore-runtime-composite.proj	2025-05-26 14:14:45.143798039 -0300
 ***************
-*** 33,39 ****
---- 33,40 ----
+*** 34,39 ****
+--- 34,40 ----
   
     <Target Name="_DownloadAndExtractDotNetRuntime" Returns="$(DotNetRuntimeArchive)">
       <ItemGroup>
