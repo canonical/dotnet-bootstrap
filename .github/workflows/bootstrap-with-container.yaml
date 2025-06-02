@@ -28,14 +28,10 @@ jobs:
 
     steps:
 
-    - name: Maximize build space
-      uses: AdityaGarg8/remove-unwanted-software@v5
-      with:
-        remove-dotnet: 'true'
-        remove-android: 'true'
-        remove-haskell: 'true'
-        remove-codeql: 'true'
-        remove-cached-tools: 'true'
+    - name: Clean up hosted runner
+      # Removes the Android SDK from the runner because otherwise we run out of disk space.
+      run: |
+        sudo rm -rf /usr/local/lib/android/
 
     - name: Clone repository
       run: |
