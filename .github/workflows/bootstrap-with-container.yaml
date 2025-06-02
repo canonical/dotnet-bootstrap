@@ -1,0 +1,64 @@
+name: Build .NET SDK with Container
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: '.NET VMR branch name'
+        required: true
+        type: string
+        default: main
+      architecture:
+        description: 'Architecture to build for'
+        required: true
+        type: choice
+        options:
+          - riscv64
+          - s390x
+          - ppc64le
+      extra-args:
+        description: 'Extra arguments to pass to the build script'
+        required: false
+        type: string
+        default: ''
+
+jobs:
+  run:
+    runs-on: [self-hosted, xlarge, jammy, X64]
+
+    steps:
+
+    - name: Maximize build space
+      uses: AdityaGarg8/remove-unwanted-software@v5
+      with:
+        remove-dotnet: 'true'
+        remove-android: 'true'
+        remove-haskell: 'true'
+        remove-codeql: 'true'
+        remove-cached-tools: 'true'
+
+    - name: Clone repository
+      run: |
+        git clone --depth 1 -b ${{ inputs.branch }} https://github.com/dotnet/dotnet
+
+    - name: Build
+      run: |
+        docker run --platform linux/amd64 --rm -v${{ github.workspace }}/dotnet:/dotnet -w /dotnet -e ROOTFS_DIR=/crossrootfs/${{ inputs.architecture }} \
+          mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net10.0-cross-${{ inputs.architecture }} \
+          sh -c '
+            ./prep-source-build.sh &&
+            ./build.sh --clean-while-building -sb --os linux --arch ${{ inputs.architecture }} ${{ inputs.extra-args }}
+          '
+
+    - name: List assets directory
+      run: |
+        find "${{ github.workspace }}/dotnet/artifacts"
+
+    - name: Upload .NET
+      uses: actions/upload-artifact@v4
+      with:
+        name: dotnet-sdk-linux-${{ inputs.architecture }}
+        path: |
+          ${{ github.workspace }}/dotnet/artifacts/assets/Release/Sdk/*/dotnet-sdk-*
+          ${{ github.workspace }}/dotnet/artifacts/assets/Release/Private.SourceBuilt.Artifacts.*.tar.gz
+          ${{ github.workspace }}/dotnet/artifacts/packages/Release/Shipping/runtime/Microsoft.NETCore.App.Crossgen2.linux-${{ inputs.architecture }}.*.nupkg
