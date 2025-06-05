@@ -53,7 +53,7 @@ jobs:
     - name: Upload .NET
       uses: actions/upload-artifact@v4
       with:
-        name: dotnet-sdk-linux-${{ inputs.architecture }}
+        name: dotnet-sdk-${{ inputs.branch }}-linux-${{ inputs.architecture }}
         path: |
           ${{ github.workspace }}/dotnet/artifacts/assets/Release/Sdk/*/dotnet-sdk-*
           ${{ github.workspace }}/dotnet/artifacts/assets/Release/Private.SourceBuilt.Artifacts.*.tar.gz
