@@ -17,6 +17,11 @@ on:
           - ppc64le
           - riscv64
           - s390x
+      buildId:
+        description: 'Official Build Id (officialBuildId in the release.json of the VMR release, e.g. 20261029.8)'
+        required: false
+        type: string
+        default: ''
       extra-args:
         description: 'Extra arguments to pass to the build script'
         required: false
@@ -29,10 +34,23 @@ jobs:
 
     steps:
 
-    - name: Clean up hosted runner
-      # Removes the Android SDK from the runner because otherwise we run out of disk space.
+    - name: Summarize inputs
+      id: params
       run: |
-        sudo rm -rf /usr/local/lib/android/
+        # Artifact names cannot contain '/', e.g. for release/10.0.1xx.
+        echo "artifact-ref=$(echo '${{ inputs.branch }}' | tr '/' '-')" >> "$GITHUB_OUTPUT"
+        cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+        | Branch | Architecture | Build Id | Extra args |
+        |---|---|---|---|
+        | \`${{ inputs.branch }}\` | \`${{ inputs.architecture }}\` | \`${{ inputs.buildId }}\` | \`${{ inputs.extra-args }}\` |
+        EOF
+
+    - name: Clean up hosted runner
+      # Removes unused preinstalled toolchains because otherwise we could run out of disk space.
+      run: |
+        sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+        sudo docker image prune --all --force
+        df -h /
 
     - name: Clone repository
       run: |
@@ -44,17 +62,27 @@ jobs:
           mcr.microsoft.com/dotnet-buildtools/prereqs:azurelinux-3.0-net10.0-cross-${{ inputs.architecture }} \
           sh -c '
             ./prep-source-build.sh &&
-            ./build.sh --clean-while-building -sb --os linux --arch ${{ inputs.architecture }} ${{ inputs.extra-args }}
+            ./build.sh --clean-while-building -sb --os linux --arch ${{ inputs.architecture }} ${{ inputs.buildId && format('--official-build-id {0}', inputs.buildId) || '' }} ${{ inputs.extra-args }}
           '
 
     - name: List assets directory
+      if: always()
       run: |
-        find "${{ github.workspace }}/dotnet/artifacts"
+        df -h /
+        find "${{ github.workspace }}/dotnet/artifacts/assets" || true
+
+    - name: Upload build logs
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-logs-${{ steps.params.outputs.artifact-ref }}-linux-${{ inputs.architecture }}
+        path: ${{ github.workspace }}/dotnet/artifacts/log/
+        if-no-files-found: ignore
 
     - name: Upload .NET
       uses: actions/upload-artifact@v4
       with:
-        name: dotnet-sdk-${{ inputs.branch }}-linux-${{ inputs.architecture }}
+        name: dotnet-sdk-${{ steps.params.outputs.artifact-ref }}-linux-${{ inputs.architecture }}-artifacts
         path: |
           ${{ github.workspace }}/dotnet/artifacts/assets/Release/Sdk/*/dotnet-sdk-*
           ${{ github.workspace }}/dotnet/artifacts/assets/Release/Private.SourceBuilt.Artifacts.*.tar.gz
